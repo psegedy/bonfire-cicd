@@ -1,0 +1,2 @@
+[bonfire.click_commands]
+cicd = bonfire_cicd:main
