@@ -4,9 +4,11 @@ import click
 from distutils.util import strtobool
 
 from .build import ImageBuilder
+from .clients.openshift import ContainerClient
 from .clients.openshift import OpenshiftClient
 from .deploy import EphemeralDeployer
 from .deploy import EphemeralDeployerDB
+from .smoke_tests import SmokeTestRunner
 from .utils import teardown
 
 IMAGE = os.getenv("IMAGE", "")
@@ -115,3 +117,24 @@ def ephemeral_db(oc):
     )
     deployer.deploy()
 
+
+@main.command
+def smoke_test():
+    oc = OpenshiftClient(token=OC_LOGIN_TOKEN, server=OC_LOGIN_SERVER)
+    docker = ContainerClient()
+    runner = SmokeTestRunner(
+        oc=oc,
+        docker=docker,
+        cji_name="TBD",
+        cji_timeout="TBD",
+        namespace="TBD",
+        job_name=JOB_NAME,
+        build_number=BUILD_NUMBER,
+        iqe_image_tag="TBD",
+        iqe_marker="TBD",
+        iqe_filter="TBD",
+        iqe_requirements="TBD",
+        iqe_requirements_priority="TBD",
+        iqe_test_importance="TBD",
+    )
+    teardown(oc, runner.namespace)
