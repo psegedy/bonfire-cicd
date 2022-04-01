@@ -9,37 +9,38 @@ from .deploy import EphemeralDeployer
 from .deploy import EphemeralDeployerDB
 from .utils import teardown
 
-IMAGE = os.getenv("IMAGE")
-IMAGE_TAG = os.getenv("IMAGE_TAG")
-APP_ROOT = os.getenv("APP_ROOT")
+IMAGE = os.getenv("IMAGE", "")
+IMAGE_TAG = os.getenv("IMAGE_TAG", "")
+APP_ROOT = os.getenv("APP_ROOT", "")
 
-QUAY_USER = os.getenv("QUAY_USER")
-QUAY_TOKEN = os.getenv("QUAY_TOKEN")
-QUAY_API_TOKEN = os.getenv("QUAY_API_TOKEN")
-RH_REGISTRY_USER = os.getenv("RH_REGISTRY_USER")
-RH_REGISTRY_TOKEN = os.getenv("RH_REGISTRY_TOKEN")
+QUAY_USER = os.getenv("QUAY_USER", "")
+QUAY_TOKEN = os.getenv("QUAY_TOKEN", "")
+QUAY_API_TOKEN = os.getenv("QUAY_API_TOKEN", "")
+RH_REGISTRY_USER = os.getenv("RH_REGISTRY_USER", "")
+RH_REGISTRY_TOKEN = os.getenv("RH_REGISTRY_TOKEN", "")
 PR_ID = os.getenv("ghprbPullId") or os.getenv("gitlabMergeRequestIid")
 
 DOCKERFILE = os.getenv("DOCKERFILE", "Dockerfile")
 CACHE_FROM_LATEST_IMAGE = os.getenv("CACHE_FROM_LATEST_IMAGE", "false")
 
-OC_LOGIN_TOKEN = os.getenv("OC_LOGIN_TOKEN")
-OC_LOGIN_SERVER = os.getenv("OC_LOGIN_SERVER")
+OC_LOGIN_TOKEN = os.getenv("OC_LOGIN_TOKEN", "")
+OC_LOGIN_SERVER = os.getenv("OC_LOGIN_SERVER", "")
 
-JOB_NAME = os.getenv("JOB_NAME")
-BUILD_NUMBER = os.getenv("BUILD_NUMBER")
+JOB_NAME = os.getenv("JOB_NAME", "")
+BUILD_NUMBER = os.getenv("BUILD_NUMBER", "")
 
-APP_NAME = os.getenv("APP_NAME")
-COMPONENT_NAME = os.getenv("COMPONENT_NAME")
-IMAGE = os.getenv("IMAGE")
-COMPONENTS = os.getenv("COMPONENTS")
-COMPONENTS_W_RESOURCES = os.getenv("COMPONENTS_W_RESOURCES")
-DEPLOY_TIMEOUT = os.getenv("DEPLOY_TIMEOUT")
-RELEASE_NAMESPACE = os.getenv("RELEASE_NAMESPACE")
-IMAGE_TAG = os.getenv("IMAGE_TAG")
-ARTIFACTS_DIR = os.getenv("ARTIFACTS_DIR")
-GIT_COMMIT = os.getenv("GIT_COMMIT")
-EXTRA_DEPLOY_ARGS = os.getenv("EXTRA_DEPLOY_ARGS")
+APP_NAME = os.getenv("APP_NAME", "")
+COMPONENT_NAME = os.getenv("COMPONENT_NAME", "")
+IMAGE = os.getenv("IMAGE", "")
+COMPONENTS = os.getenv("COMPONENTS", "")
+COMPONENTS_W_RESOURCES = os.getenv("COMPONENTS_W_RESOURCES", "")
+DEPLOY_TIMEOUT = os.getenv("DEPLOY_TIMEOUT", "")
+RELEASE_NAMESPACE = os.getenv("RELEASE_NAMESPACE", "")
+IMAGE_TAG = os.getenv("IMAGE_TAG", "")
+ARTIFACTS_DIR = os.getenv("ARTIFACTS_DIR", "")
+GIT_COMMIT = os.getenv("GIT_COMMIT", "")
+REF_ENV = os.getenv("REF_ENV", "insights-production")
+EXTRA_DEPLOY_ARGS = os.getenv("EXTRA_DEPLOY_ARGS", "")
 
 
 @click.group("cicd")
@@ -83,14 +84,15 @@ def ephemeral(oc):
         app_name=APP_NAME,
         component_name=COMPONENT_NAME,
         template_ref=f"{COMPONENT_NAME}={GIT_COMMIT}",
+        image=IMAGE,
         image_tag=IMAGE_TAG,
+        ref_env=REF_ENV,
         deploy_timeout=DEPLOY_TIMEOUT,
         components=COMPONENTS,
         components_resources=COMPONENTS_W_RESOURCES,
         extra_deploy_args=EXTRA_DEPLOY_ARGS,
     )
     deployer.deploy()
-    teardown(oc, deployer.namespace)
 
 
 @deploy.command()
@@ -103,11 +105,13 @@ def ephemeral_db(oc):
         app_name=APP_NAME,
         component_name=COMPONENT_NAME,
         template_ref=f"{COMPONENT_NAME}={GIT_COMMIT}",
+        image=IMAGE,
         image_tag=IMAGE_TAG,
+        ref_env=REF_ENV,
         deploy_timeout=DEPLOY_TIMEOUT,
         components=COMPONENTS,
         components_resources=COMPONENTS_W_RESOURCES,
         extra_deploy_args=EXTRA_DEPLOY_ARGS,
     )
     deployer.deploy()
-    teardown(oc, deployer.namespace)
+

@@ -2,7 +2,6 @@ import base64
 import json
 import logging
 import os
-import socket
 
 import attr
 from bonfire.bonfire import FatalError
@@ -10,6 +9,7 @@ from invoke import run
 
 from .clients.openshift import OpenshiftClient
 from .utils import convert_arg
+from .utils import set_port_forward
 from .utils import teardown
 
 logger = logging.getLogger(__name__)
@@ -23,7 +23,9 @@ class EphemeralDeployerBase:
     app_name: str = attr.ib()
     component_name: str = attr.ib()
     template_ref: str = attr.ib()
+    image: str = attr.ib()
     image_tag: str = attr.ib()
+    ref_env: str = attr.ib("insights-production")
     db_deployment_name: str = attr.ib(default=f"{component_name}-db")
     deploy_timeout: str = attr.ib(default="600")
     namespace: str = attr.ib(default="")
@@ -39,7 +41,7 @@ class EphemeralDeployerBase:
 
     def _reserve_namespace(self):
         if not self.namespace:
-            self.namespace = run("bonfire namespace reserve", echo=True).stdout
+            self.namespace = run("bonfire namespace reserve", echo=True).stdout.rstrip("\n")
 
     def _pre_deploy(self):
         raise NotImplementedError
@@ -74,15 +76,15 @@ class EphemeralDeployer(EphemeralDeployerBase):
     def _deploy(self):
         run(
             f"""
-            bonfire deploy {self.app_name}
-                --source=appsre
-                --ref-env insights-stage
-                --set-template-ref {self.template_ref}
-                --set-image-tag {self.image_tag}
-                --namespace {self.namespace}
-                --timeout {self.deploy_timeout}
-                {self.components}
-                {self.components_resources}
+            bonfire deploy {self.app_name} \
+                --source=appsre \
+                --ref-env {self.ref_env} \
+                --set-template-ref {self.template_ref} \
+                --set-image-tag {self.image}={self.image_tag} \
+                --namespace {self.namespace} \
+                --timeout {self.deploy_timeout} \
+                {self.components} \
+                {self.components_resources} \
                 {self.extra_deploy_args}
             """,
             echo=True,
@@ -90,7 +92,7 @@ class EphemeralDeployer(EphemeralDeployerBase):
 
 
 @attr.s
-class EphemeralDeployerDB(EphemeralDeployer):
+class EphemeralDeployerDB(EphemeralDeployerBase):
     def _pre_deploy(self):
         os.environ["BONFIRE_NS_REQUESTER"] = f"{self.job_name}-{self.build_number}-db"
         self._reserve_namespace()
@@ -100,14 +102,14 @@ class EphemeralDeployerDB(EphemeralDeployer):
     def _deploy(self):
         run(
             f"""
-            bonfire process {self.app_name}
-                --source=appsre
-                --ref-env insights-stage
-                --set-template-ref {self.template_ref}
-                --set-image-tag {self.image_tag}
-                --namespace {self.namespace}
-                --no-get-dependencies
-                {self.components}
+            bonfire process {self.app_name} \
+                --source=appsre \
+                --ref-env {self.ref_env} \
+                --set-template-ref {self.template_ref} \
+                --set-image-tag {self.image}={self.image_tag} \
+                --namespace {self.namespace} \
+                --no-get-dependencies \
+                {self.components} \
                 {self.components_resources} | oc apply -f - -n {self.namespace}
             """,
             echo=True,
@@ -116,17 +118,7 @@ class EphemeralDeployerDB(EphemeralDeployer):
 
     def _post_deploy(self):
         # Set up port-forward for DB
-        s = socket.socket()
-        s.bind(("", 0))
-        local_db_port = s.getsockname()[1]
-        s.close()
-        port_forward_pid = self.oc(
-            "port-forward",
-            f"svc{self.db_deployment_name}",
-            f"{local_db_port}:5432",
-            namespace=self.namespace,
-        ).pid
-        os.environ["PORT_FORWARD_PID"] = port_forward_pid
+        local_db_port = set_port_forward(self.oc, self.db_deployment_name, "5432", self.namespace)
 
         # Store database access info to env vars
         secret = self.oc.get.secret(self.component_name, output="json", namespace=self.namespace)

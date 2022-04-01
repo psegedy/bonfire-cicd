@@ -2,6 +2,7 @@ import logging
 from typing import Any
 from typing import Dict
 from typing import Iterator
+from typing import List
 from typing import Optional
 from typing import Tuple
 from typing import Union
@@ -36,12 +37,19 @@ class ContainerClient:
     ) -> Dict[str, Any]:
         return self.client.login(username=username, password=password, registry=registry, **kwargs)
 
+    def pull(
+        self, repository: str, tag: Optional[str] = None, all_tags: bool = False, **kwargs
+    ) -> Union[Union[PodmanImage, DockerImage], List[Union[PodmanImage, DockerImage]]]:
+        return self.client.images.pull(repository, tag, all_tags, **kwargs)
+
     def build(
         self, path: str, tag: str, dockerfile: str, **kwargs
     ) -> Tuple[Union[PodmanImage, DockerImage], Iterator[bytes]]:
         if kwargs.get("cache_from"):
             log.info("Attempting to build image using cache")
-            self.client.images.pull(kwargs["cache_from"])
+            *_repository, __ = tag.split(":")
+            repository = "".join(_repository)
+            self.pull(repository=repository, cache_from=True)
             try:
                 return self.client.images.build(
                     path=path,

@@ -38,7 +38,7 @@ class OpenshiftClient:
 
     def __attrs_post_init__(self) -> None:
         self.load()
-        self.login(token=self.token, server=self.server)
+        self.login(token=self.token, server=self.server, _silent=True)
         if self.namespace:
             self.project(self.namespace)
 
