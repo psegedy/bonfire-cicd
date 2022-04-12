@@ -11,27 +11,15 @@ from .clients.container import ContainerClient
 
 @attr.s
 class ImageBuilder:
+    client: ContainerClient = attr.ib()
     image: str = attr.ib()
     image_tag: str = attr.ib()
     app_root: str = attr.ib()
-    quay_user: str = attr.ib()
-    quay_token: str = attr.ib()
     quay_api_token: str = attr.ib()
-    rh_registry_user: str = attr.ib()
-    rh_registry_token: str = attr.ib()
     is_pull_request: bool = attr.ib(default=False)
     dockerfile: str = attr.ib(default="Dockerfile")
     cache_from_latest: bool = attr.ib(default=False)
     quay_expire_time: str = attr.ib(default="3d")
-
-    def __attrs_post_init__(self) -> None:
-        self.client = ContainerClient()
-        self.client.login(username=self.quay_user, password=self.quay_token, registry="quay.io")
-        self.client.login(
-            username=self.rh_registry_user,
-            password=self.rh_registry_token,
-            registry="registry.redhat.io",
-        )
 
     @property
     def is_quay_image(self) -> bool:

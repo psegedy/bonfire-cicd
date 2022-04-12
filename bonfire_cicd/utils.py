@@ -1,16 +1,21 @@
+import base64
 import json
 import logging
 import os
 import shutil
 import socket
+import tarfile
 from pathlib import Path
 from typing import Dict
 from typing import List
 from typing import Optional
+from typing import Tuple
 
+import attr
 from distutils.util import strtobool
 from invoke import run
 
+from .clients.container import ContainerClient
 from .clients.openshift import OpenshiftClient
 
 logger = logging.getLogger(__name__)
@@ -115,3 +120,57 @@ def set_port_forward(oc: OpenshiftClient, svc_name: str, port: str, ns: str) -> 
     ).pid
     os.environ["PORT_FORWARD_PID"] = port_forward_pid
     return str(local_port)
+
+
+def setup_minio(
+    oc: OpenshiftClient, docker: ContainerClient, mc_image: str, ns: str
+) -> Tuple[str, str, str, str]:
+    # minio client is used to fetch test artifacts from minio in the ephemeral ns
+    logger.info(f"Running: docker pull ${mc_image}:latest")
+    docker.pull(mc_image)
+    # Set up port-forward for minio
+    svc_port = set_port_forward(oc, f"env-{ns}-minio", "9000", ns)
+    # Get the secret from the env
+    minio_secret = oc.get.secret(f"env-{ns}-minio", output="json", _silent=True)
+    secret_json = json.loads(minio_secret)
+    # Grab the needed creds from the secret
+    minio_access = base64.b64decode(secret_json["data"]["accessKey"])
+    minio_secret_key = base64.b64decode(secret_json["data"]["secretKey"])
+    minio_host = "localhost"
+    minio_port = svc_port
+    return str(minio_access), str(minio_secret_key), minio_host, minio_port
+
+
+def run_mc(
+    docker: ContainerClient, container_name: str, mc_image: str, cmd: str, artifacts_dir: str
+):
+    logger.info(
+        "running: docker run -t --net=host --name=%s --entrypoint=/bin/sh %s:latest -c %s",
+        container_name,
+        mc_image,
+        cmd,
+    )
+    docker.client.containers.run(
+        image=f"{mc_image}:latest",
+        command=cmd,
+        network_mode="host",
+        name=container_name,
+        entrypoint="/bin/sh",
+        tty=True,
+    )
+    container = docker.client.containers.get(container_name)
+    stream, __ = container.get_archive("/artifacts/.")
+    with tarfile.open(stream.read(), "r") as tf:
+        tf.extractall(path=artifacts_dir)
+
+
+@attr.s
+class Clients:
+    oc_token: str = attr.ib()
+    oc_server: str = attr.ib()
+    oc: OpenshiftClient = attr.ib(init=False)
+    docker: ContainerClient = attr.ib(init=False)
+
+    def __attrs_post_init__(self):
+        self.oc = OpenshiftClient(self.oc_token, self.oc_server)
+        self.docker = ContainerClient.from_env()
