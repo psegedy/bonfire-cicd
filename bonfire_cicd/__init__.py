@@ -87,7 +87,7 @@ def build(clients):
 
 @main.command()
 @click.pass_obj
-def smoke_test(clients):
+def smoke_tests(clients):
     ns = os.getenv("NAMESPACE", "")
     try:
         runner = SmokeTestRunner(
