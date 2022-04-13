@@ -42,6 +42,9 @@ class OpenshiftClient:
         if self.namespace:
             self.project(self.namespace)
 
+    def __call__(self, *args: Any, **kwargs: Any) -> Union[str, None]:
+        return oc(*args, **kwargs)
+
     def load(self) -> None:
         """Load client actions."""
         for action, sub_actions in OC_ACTIONS.items():

@@ -112,8 +112,7 @@ def set_port_forward(oc: OpenshiftClient, svc_name: str, port: str, ns: str) -> 
     s.bind(("", 0))
     local_port = s.getsockname()[1]
     s.close()
-    port_forward_pid = oc(
-        "port-forward",
+    port_forward_pid = oc.port_forward(
         f"svc/{svc_name}",
         f"{local_port}:{port}",
         namespace={ns},
@@ -132,7 +131,7 @@ def setup_minio(
     svc_port = set_port_forward(oc, f"env-{ns}-minio", "9000", ns)
     # Get the secret from the env
     minio_secret = oc.get.secret(f"env-{ns}-minio", output="json", _silent=True)
-    secret_json = json.loads(minio_secret)
+    secret_json = json.loads(minio_secret.stdout)
     # Grab the needed creds from the secret
     minio_access = base64.b64decode(secret_json["data"]["accessKey"])
     minio_secret_key = base64.b64decode(secret_json["data"]["secretKey"])
